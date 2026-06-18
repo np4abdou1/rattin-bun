@@ -97,8 +97,9 @@ export async function fetchMovieDetails(
 
 export async function fetchTVShowDetails(
   tvId: number
-): Promise<{ external_ids?: { imdb_id?: string } } | null> {
+): Promise<{ imdb_id?: string } | null> {
   try {
+    // The /external_ids endpoint returns imdb_id at the top level (not nested)
     return await tmdbFetch(`/tv/${tvId}/external_ids`);
   } catch {
     return null;
@@ -118,7 +119,7 @@ export async function fetchImdbId(
       return data?.imdb_id || null;
     } else {
       const data = await fetchTVShowDetails(id);
-      return data?.external_ids?.imdb_id || null;
+      return data?.imdb_id || null;
     }
   } catch {
     return null;
