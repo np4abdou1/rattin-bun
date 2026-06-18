@@ -308,21 +308,72 @@ async function searchNyaa(query: string): Promise<TorrentResult[]> {
 
 // ── Scoring ───────────────────────────────────────────────────────
 
+/**
+ * Check if a torrent name matches the requested TV episode.
+ * Matches patterns: S01E01, s01e01, S1E1, 1x01, 1X01
+ * Returns "exact" for episode match, "season" for season-pack match, "none" otherwise.
+ */
+export function matchEpisode(
+  name: string,
+  season: number,
+  episode: number
+): "exact" | "season" | "none" {
+  const lower = name.toLowerCase();
+  const s = String(season);
+  const e = String(episode);
+  const sPad = String(season).padStart(2, "0");
+  const ePad = String(episode).padStart(2, "0");
+
+  // S01E01 / s01e01 / S1E1
+  const epRe = new RegExp(`s0?${s}e0?${e}\\b`, "i");
+  // 1x01 / 1X01
+  const crossRe = new RegExp(`\\b0?${s}x0?${e}\\b`, "i");
+
+  if (epRe.test(lower) || crossRe.test(lower)) return "exact";
+
+  // Season pack: S01 / Season 1 (no episode number anywhere)
+  const seasonRe = new RegExp(`s0?${s}\\b`, "i");
+  const hasAnyEpisode = /\bS\d+E\d+\b/i.test(lower) || /\b\d+x\d+\b/i.test(lower);
+  if (seasonRe.test(lower) && !hasAnyEpisode) return "season";
+
+  return "none";
+}
+
 export function scoreTorrent(
   result: TorrentResult,
   title: string,
   year: string,
-  type: string
+  type: string,
+  season?: number,
+  episode?: number
 ): number {
   let score = 0;
   const name = result.name.toLowerCase();
   const titleLower = title.toLowerCase();
 
+  // Must contain the first word of the title
   if (!name.includes(titleLower.split(" ")[0])) return -1;
 
   const titleWords = titleLower.split(/\s+/);
   const matchedWords = titleWords.filter((w) => name.includes(w)).length;
   score += (matchedWords / titleWords.length) * 50;
+
+  // For TV with a specific episode, require an episode match.
+  // This is the key fix: filters out S01E05 torrents when S01E01 was requested.
+  if (type === "tv" && season !== undefined && episode !== undefined) {
+    const match = matchEpisode(result.name, season, episode);
+    if (match === "exact") {
+      score += 25; // strong bonus for exact episode match
+    } else if (match === "season") {
+      // Season pack contains the episode but downloads the whole season.
+      // Heavily penalize so individual episodes rank higher, but don't filter
+      // (useful when no per-episode torrents exist).
+      score -= 40;
+    } else {
+      // Doesn't match the episode at all — filter out.
+      return -1;
+    }
+  }
 
   if (year && type === "movie" && name.includes(String(year))) score += 8;
 
@@ -348,6 +399,7 @@ export function scoreTorrent(
   if (result.size && result.size > 0) {
     const gb = result.size / 1024 ** 3;
     if (type === "tv") {
+      // Per-episode: prefer 0.3–1.5 GB. Season packs will be much larger.
       if (gb < 0.3) score -= 10;
       else if (gb < 0.5) score -= 3;
       else if (gb <= 1.5) score += 8;
@@ -466,9 +518,9 @@ export async function searchTorrents(target: SearchTarget): Promise<TorrentResul
     }
   }
 
-  // Score and sort
+  // Score and sort — pass season/episode so TV torrents are filtered by episode match
   return [...seen.values()]
-    .map((r) => ({ ...r, score: scoreTorrent(r, title, year, type) }))
+    .map((r) => ({ ...r, score: scoreTorrent(r, title, year, type, season, episode) }))
     .filter((r) => (r.score ?? -1) > 0)
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || b.seeders - a.seeders)
     .slice(0, 30);
