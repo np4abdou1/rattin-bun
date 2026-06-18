@@ -388,6 +388,30 @@ export function scoreTorrent(
 
   if (/\bcam\b|hdcam|telecine|\bts\b|hdts|telesync/i.test(name)) score -= 50;
 
+  // ── File-structure scoring (prevents "sample.mkv" being played) ──
+  // The webtorrent-hook mpv plugin picks the first video file alphabetically
+  // when a torrent is a folder. Folder torrents (e.g. PSArips releases) often
+  // contain a "sample.mkv" that sorts before the main movie, causing the user
+  // to watch a 1-minute preview instead of the full film.
+  //
+  // YTS torrents are always single files — strong bonus for movies.
+  // Torrents whose name looks like a folder (release group pattern, no file
+  // extension) get a small penalty.
+  if (type === "movie") {
+    if (result.source === "yts") {
+      score += 15; // YTS = always single file, no sample issue
+    }
+    // Detect folder-style names: "Title.YEAR.GROUP" with a release group suffix
+    // (e.g. "-PSA", "-RARBG", "-YIFY") and no file extension
+    const hasExtension = /\.(mkv|mp4|avi|webm|mov)\b/i.test(result.name);
+    const hasGroupSuffix = /-(\w{3,8})$/.test(result.name);
+    if (!hasExtension && hasGroupSuffix) {
+      score -= 10; // likely a folder, might contain sample files
+    }
+    // Explicit penalty for names containing "sample" (rare but direct)
+    if (/sample/i.test(result.name)) score -= 50;
+  }
+
   if (result.seeders === 0) return -1;
 
   const seederScore = Math.min(
