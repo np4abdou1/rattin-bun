@@ -7,10 +7,13 @@
     "rattin": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun src/index.ts",
-    "dev": "bun --hot src/index.ts",
-    "deps": "bun src/index.ts deps",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "deps": "tsx src/index.ts deps",
     "lint": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "keywords": [
     "torrent",
@@ -25,11 +28,11 @@
     "commander": "^13.1.0",
     "dotenv": "^17.4.2",
     "inquirer": "^12.6.0",
-    "webtorrent": "^3.0.16"
+    "webtorrent": "2.8.5"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "bun-types": "^1.3.4",
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   },
   "trustedDependencies": [

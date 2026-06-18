@@ -1,67 +1,21 @@
 /**
- * Safe Torrent Wrapper
+ * Safe Torrent Wrapper (simplified for WebTorrent 2.x)
  *
- * Patches a WebTorrent torrent to prevent the null-piece crash in 3.x.
+ * WebTorrent 3.x had a null-piece crash that required extensive monkey-patching.
+ * We downgraded to WebTorrent 2.x which is stable and doesn't have this bug.
+ * This wrapper now only adds safe accessor helpers for robust progress tracking.
  */
 import WebTorrent from "webtorrent";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTorrent = any;
 
+/**
+ * Add safe accessor helpers to a torrent. These cache values so that if
+ * WebTorrent's getters ever throw (rare in 2.x, but defensive), we still
+ * have a last-known-good value for progress display.
+ */
 export function createSafeTorrent(torrent: AnyTorrent): AnyTorrent {
-  if (torrent._request) {
-    const origRequest = torrent._request.bind(torrent);
-    torrent._request = function (wire: unknown, piece: number) {
-      try {
-        if (piece != null && torrent.pieces[piece] != null) {
-          return origRequest(wire, piece);
-        }
-        return false;
-      } catch {
-        return false;
-      }
-    };
-  }
-
-  if (torrent._updateWire) {
-    const origUpdateWire = torrent._updateWire.bind(torrent);
-    torrent._updateWire = function (...args: unknown[]) {
-      try {
-        origUpdateWire(...args);
-      } catch {
-        /* ignore */
-      }
-    };
-  }
-
-  if (torrent._update) {
-    const origUpdate = torrent._update.bind(torrent);
-    let lastUpdate = 0;
-    torrent._update = function (...args: unknown[]) {
-      const now = Date.now();
-      if (now - lastUpdate < 100) return;
-      lastUpdate = now;
-      try {
-        origUpdate(...args);
-      } catch {
-        /* ignore */
-      }
-    };
-  }
-
-  if (torrent.bitfield) {
-    const origGet = torrent.bitfield.get?.bind(torrent.bitfield);
-    if (origGet) {
-      torrent.bitfield.get = function (index: number) {
-        try {
-          return true;
-        } catch {
-          return origGet(index);
-        }
-      };
-    }
-  }
-
   let manualDownloaded = 0;
   let lastSpeed = 0;
 
@@ -108,25 +62,12 @@ export function createSafeTorrent(torrent: AnyTorrent): AnyTorrent {
   return torrent;
 }
 
+/**
+ * Create a WebTorrent client. In 2.x this is just `new WebTorrent()`.
+ * Kept as a function for API compatibility with stream/index.ts.
+ */
 export async function createSafeClient(
   options?: Record<string, unknown>
 ): Promise<InstanceType<typeof WebTorrent>> {
-  const client = new WebTorrent(options as ConstructorParameters<typeof WebTorrent>[0]);
-
-  const origAdd = client.add.bind(client);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).add = function (torrentId: unknown, opts: unknown) {
-    const torrent = origAdd(torrentId as never, opts as never);
-
-    const patchTorrent = () => {
-      createSafeTorrent(torrent);
-    };
-
-    patchTorrent();
-    torrent.on("metadata", patchTorrent);
-
-    return torrent;
-  };
-
-  return client;
+  return new WebTorrent(options as ConstructorParameters<typeof WebTorrent>[0]);
 }

@@ -1,8 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 /**
  * rattin — Stream torrents from the terminal.
  *
  * Search TMDB → pick with fzf → pick torrent → stream via WebTorrent into MPV.
+ *
+ * NOTE: Runs on Node.js via tsx (NOT Bun). WebTorrent's native modules
+ * (node-datachannel, utp-native) call libuv functions (e.g. uv_timer_init)
+ * that Bun does not yet support — see https://github.com/oven-sh/bun/issues/18546
  */
 import "dotenv/config";
 

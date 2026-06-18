@@ -59,3 +59,6 @@ server.log
 # Bun
 bun.lockb
 *.lockb
+
+# Sandbox build scripts (not part of rattin)
+/.zscripts/
