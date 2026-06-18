@@ -77,8 +77,14 @@ export function checkDepsOnly(): void {
     allOk = false;
   }
 
-  // Check webtorrent is importable
-  console.log(chalk.green("  ✓ WebTorrent: bundled"));
+  // Check webtorrent-cli (needed by mpv's webtorrent-hook plugin for streaming)
+  const wtVer = getVersion("webtorrent");
+  if (wtVer) {
+    console.log(chalk.green(`  ✓ webtorrent-cli: v${wtVer}`));
+  } else {
+    console.log(chalk.yellow("  ⚠ webtorrent-cli: not found (install with: npm i -g webtorrent-cli)"));
+    console.log(chalk.gray("    (only needed if your mpv config uses the webtorrent-hook plugin)"));
+  }
 
   if (allOk) {
     console.log(chalk.green.bold("\n  All good! Run `rattin` to start.\n"));

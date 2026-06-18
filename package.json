@@ -1,7 +1,7 @@
 {
   "name": "rattin",
   "version": "1.0.0",
-  "description": "Stream torrents from the terminal using TMDB + WebTorrent + MPV",
+  "description": "Stream torrents from the terminal using TMDB + MPV (magnet link passed directly to mpv)",
   "type": "module",
   "bin": {
     "rattin": "./src/index.ts"
@@ -27,16 +27,12 @@
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "dotenv": "^17.4.2",
-    "inquirer": "^12.6.0",
-    "webtorrent": "2.8.5"
+    "inquirer": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
     "tsx": "^4.22.4",
     "typescript": "^5"
-  },
-  "trustedDependencies": [
-    "node-datachannel",
-    "utp-native"
-  ]
+  }
 }
+

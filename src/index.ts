@@ -2,20 +2,10 @@
 /**
  * rattin — Stream torrents from the terminal.
  *
- * Search TMDB → pick with fzf → pick torrent → stream via WebTorrent into MPV.
- *
- * NOTE: Runs on Node.js via tsx (NOT Bun). WebTorrent's native modules
- * (node-datachannel, utp-native) call libuv functions (e.g. uv_timer_init)
- * that Bun does not yet support — see https://github.com/oven-sh/bun/issues/18546
+ * Search TMDB → pick with fzf → pick torrent → launch MPV with magnet link.
+ * MPV's own config (e.g. webtorrent-hook plugin) handles the torrent streaming.
  */
 import "dotenv/config";
-
-// Swallow WebTorrent's internal null-piece crash (known bug in WebTorrent 3.x)
-process.on("uncaughtException", (err) => {
-  if (err.message && err.message.includes("Cannot read properties of null")) {
-    return; // WebTorrent recovers on next tick
-  }
-});
 
 import { Command } from "commander";
 import chalk from "chalk";

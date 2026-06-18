@@ -2,7 +2,7 @@
 
 Stream torrents from the terminal. Search TMDB, pick a torrent, watch with MPV.
 
-A TypeScript port of [np4abdou1/rattin](https://github.com/np4abdou1/rattin), running on **Node.js + tsx** with **WebTorrent 2.x**.
+A TypeScript port of [np4abdou1/rattin](https://github.com/np4abdou1/rattin), running on **Node.js + tsx**.
 
 ## Usage
 
@@ -30,7 +30,7 @@ npm install
 ### Dependencies
 
 - **Node.js** >= 20 (runs via `tsx` for TypeScript)
-- **mpv** — video player
+- **mpv** — video player (must be configured to handle magnet links, see below)
 - **fzf** — fuzzy finder
 
 ```bash
@@ -43,6 +43,25 @@ brew install mpv fzf
 # Arch
 sudo pacman -S mpv fzf
 ```
+
+### MPV magnet link support
+
+This CLI passes magnet links directly to `mpv`. MPV needs a plugin to handle
+them — the recommended setup is the
+[webtorrent-hook](https://github.com/noctuid/mpv-webtorrent-hook) plugin
++ `webtorrent-cli`:
+
+```bash
+# Install webtorrent-cli globally
+npm install -g webtorrent-cli
+
+# Install the mpv plugin
+git clone https://github.com/noctuid/mpv-webtorrent-hook.git \
+  ~/.config/mpv/scripts/webtorrent-hook
+```
+
+With that in place, `mpv "magnet:?xt=urn:btih:..."` just works — the plugin
+spawns `webtorrent-cli` to stream the torrent and feeds the video into mpv.
 
 ## Setup
 
@@ -64,62 +83,33 @@ TMDB_API_KEY=your_key_here
 2. **Select** — pick from TMDB results via fzf
 3. **For TV shows** — select season, then episode
 4. **Pick torrent** — scored and sorted by quality, seeders, size
-5. **Watch** — streams via WebTorrent into MPV
+5. **Watch** — `mpv "magnet:..."` — MPV's plugin handles the streaming
 
 ## How it works
 
 - **TMDB** for metadata (search, seasons, episodes, ratings, imdb ids)
 - **Torrentio** as primary source (best curated results, needs imdb id)
 - **TPB, EZTV, YTS, Nyaa** as fallback providers
-- **WebTorrent 2.x** for P2P streaming with adaptive piece prioritization
-- **MPV** for playback (hardware-accelerated, all formats)
+- **MPV** for playback (with webtorrent-hook plugin for magnet streaming)
 - **fzf** for fuzzy selection UI
 
 Torrents are scored by title match, resolution, source quality, seeders,
-and file size. Everything streams to a temp directory — nothing persists.
-
-## Why Node.js + WebTorrent 2.x (not Bun + WebTorrent 3.x)?
-
-The original rattin used Node.js + WebTorrent 3.x. This port initially tried
-**Bun + WebTorrent 3.x**, but hit two show-stopping bugs:
-
-1. **Bun crash** — WebTorrent 3.x's native module `node-datachannel` calls
-   `uv_timer_init` (a libuv function). Bun doesn't support this yet
-   ([oven-sh/bun#18546](https://github.com/oven-sh/bun/issues/18546)), causing
-   a hard `SIGILL` crash during `client.add()`.
-
-2. **WebTorrent 3.x null-piece crash** — even on Node.js, WebTorrent 3.x has a
-   bug where `torrent.pieces[i]` entries become null during the piece
-   reservation loop, crashing `_request` → `_updateWire` → `_update` and
-   stalling all downloads.
-
-**The fix:** Run on **Node.js via tsx** (full libuv support) and use
-**WebTorrent 2.x** (pure JavaScript, no native modules, no null-piece bug).
-Verified end-to-end: 129 MB Sintel torrent downloads in ~30s with 20+ peers,
-HTTP range requests serve exact byte counts, MPV-compatible `video/mp4` stream.
+and file size. No WebTorrent library — mpv handles streaming via its plugin.
 
 ## Project structure
 
 ```
 src/
-├── index.ts          # CLI entry point (commander + main flow)
-├── deps.ts           # mpv/fzf dependency checker
-├── tmdb.ts           # TMDB API client (+ imdb id fetch)
-├── torrent.ts        # multi-provider search + scoring + magnet builder
-├── fzf.ts            # fzf subprocess wrapper
-├── ui.ts             # colored torrent line rendering
-├── mpv.ts            # re-exports stream manager
-└── stream/
-    ├── index.ts      # StreamManager (orchestrates the pipeline)
-    ├── safe-torrent.ts  # safe accessor helpers for WebTorrent 2.x
-    ├── prioritizer.ts   # adaptive piece prioritization (seek-aware)
-    ├── server.ts        # HTTP server with range request support
-    ├── progress.ts      # live download progress display
-    └── cleanup.ts       # temp dir + signal handlers
-scripts/
-├── test-stream.ts    # end-to-end streaming pipeline test (uses Sintel torrent)
-└── diag-*.ts         # diagnostic scripts
+├── index.ts     # CLI entry point (commander + main flow)
+├── deps.ts      # mpv/fzf dependency checker
+├── tmdb.ts      # TMDB API client (+ imdb id fetch)
+├── torrent.ts   # multi-provider search + scoring + magnet builder
+├── fzf.ts       # fzf subprocess wrapper
+├── ui.ts        # colored torrent line rendering
+└── mpv.ts       # launches mpv with magnet link (stdio inherited)
 ```
+
+~300 lines total. No streaming infrastructure — just search, pick, and play.
 
 ## License
 
